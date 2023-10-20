@@ -14,11 +14,11 @@ struct box
     int attribute;   // 0 - not bomb, 1 - bomb
     int surrounded;  // tell the number of neighbour-boxes contain bomb
     int status;      // 0 - not opened, 1 - opened
-    bool flagged;      
+    bool flagged;    // flag - true, not flag - false
 };
 
 
-// Create an array of boxes, random bomb
+// Create an array of boxes
 
 box boxes[N][N];
 
@@ -126,14 +126,17 @@ int main()
             {
                 continue;
             }
-            update_surrounding(i, j);        //update surroundings
+            update_surrounding(i, j);        //update to boxes.surrounded
         }
     }
 
 
-    //Play-time
+    //PLAY-TIME
 
     int max = board_height * board_width - bombs;
+
+
+    //Loop through the entire game
 
 
     while (true)
@@ -228,7 +231,7 @@ void set_bombs(int bombs, int height, int width)
         }
     }
 
-    //use generated array to random precisely number of bombs with no repitition
+    //Use generated array to random precisely number of bombs with no repitition
 
     int ran_arr[bombs];
     int random;
@@ -438,7 +441,7 @@ string take_command(int height, int width)
 }
 
 
-//OPEN CURRENT
+//OPEN NEIGHBOUR-CELLS IF CURRENT CELL SURROUNDED IS SET TO 0
 
 
 void open(int pos_x, int pos_y, int height, int width)
