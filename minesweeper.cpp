@@ -337,6 +337,7 @@ int draw(int height, int width)
             {
                 if (i % 2 == 0)
                 {
+                    cout.width(2);
                     std::cout << i / 2 << " ";
                     continue;
                 }
@@ -407,14 +408,14 @@ string take_command(int height, int width)
     
         getline(cin, cmd);
         
-    } while (cmd.size() != 3 || (cmd[0] != 'o' && cmd[0] != 'f' && cmd[0] != 'u'));
+    } while (cmd.size() != 4 || (cmd[0] != 'o' && cmd[0] != 'f' && cmd[0] != 'u'));
     
     
     
     
 
     
-    while ((cmd[1] > (char) (width + 64) || cmd[1] < 'A') && (cmd[2] > height || cmd[2] < 1))
+    while ((cmd[1] > (char) (width + 64) || cmd[1] < 'A') && (((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48 > height || ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48 < 1))
     {
         std::cout << "Enter command (o or f or u): ";
         getline(cin, cmd);
@@ -422,7 +423,7 @@ string take_command(int height, int width)
 
     
     int pos_x = ((int) cmd[1]) - 64;
-    int pos_y = (int) cmd[2] - 48;
+    int pos_y = ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48;
 
 
     if (cmd[0] == 'f')
