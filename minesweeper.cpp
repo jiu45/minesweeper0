@@ -192,6 +192,7 @@ int main()
     std::cout << "Follow ShiinaDidn'tBlush on ButtBook !" << endl;
     std::cout << endl;
     std::cout << "Restart the program to play again \n";
+    std::cout << endl;
 
     return 0;
 
