@@ -303,7 +303,7 @@ int draw(int height, int width)
                 }
                 if (j == 1)
                 {
-                    std::cout << " ";
+                    std::cout << "  ";
                     continue;
                 }
                 else
@@ -323,7 +323,7 @@ int draw(int height, int width)
                 }
                 if (j == 1)
                 {
-                    std::cout << " ";
+                    std::cout << "  ";
                     continue;
                 }
                 else
@@ -343,7 +343,7 @@ int draw(int height, int width)
                 }
                 else
                 {
-                    std::cout << "  "; 
+                    std::cout << "   "; 
                     continue;
                 }            
             }
