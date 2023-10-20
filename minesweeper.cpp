@@ -2,6 +2,7 @@
 #include <string>
 #include <cstdlib> 
 #include <time.h> 
+#include <windows.h>
 
 using namespace std;
 
@@ -32,6 +33,18 @@ string take_command(int height, int width);
 void open(int pos_x, int pos_y, int height, int width);
 bool game_over(string cmd);
 
+
+//Added to change text color
+
+string setcolor(unsigned short color)
+{
+    HANDLE hcon = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(hcon, color);
+    return "";
+}
+
+
+//MAIN
 
 int main()
 {
@@ -366,7 +379,11 @@ int draw(int height, int width)
                     opened++;
                     if (boxes[j - 1][i / 2].attribute == 1)
                     {
-                        std::cout << " " << "#" << " " << "|";
+                        std::cout << " ";
+                        setcolor(8);
+                        std::cout << "#";
+                        setcolor(15);
+                        std::cout << " " << "|";                       
                         continue;
                     }
                     
@@ -375,16 +392,89 @@ int draw(int height, int width)
                         std::cout << " " << " " << " " << "|";
                         continue;
                     }
+
+                    if (boxes[j - 1][i / 2].surrounded == 1)
+                    {
+                        
+                        std::cout << " ";
+                        setcolor(9);
+                        std::cout << boxes[j - 1][i / 2].surrounded;
+                        setcolor(15);
+                        std::cout << " " << "|";
+                        
+                        continue;
+                    }
+
+                    if (boxes[j - 1][i / 2].surrounded == 2)
+                    {
+                        
+                        std::cout << " ";
+                        setcolor(2);
+                        std::cout << boxes[j - 1][i / 2].surrounded;
+                        setcolor(15);
+                        std::cout << " " << "|";
+                        
+                        continue;
+                    }
+
+                    if (boxes[j - 1][i / 2].surrounded == 3)
+                    {
+                        
+                        std::cout << " ";
+                        setcolor(12);
+                        std::cout << boxes[j - 1][i / 2].surrounded;
+                        setcolor(15);
+                        std::cout << " " << "|";
+                        
+                        continue;
+                    }
+
+                    if (boxes[j - 1][i / 2].surrounded == 4)
+                    {
+                        
+                        std::cout << " ";
+                        setcolor(1);
+                        std::cout << boxes[j - 1][i / 2].surrounded;
+                        setcolor(15);
+                        std::cout << " " << "|";
+                        
+                        continue;
+                    }
+
+                    if (boxes[j - 1][i / 2].surrounded == 5)
+                    {
+                        
+                        std::cout << " ";
+                        setcolor(13);
+                        std::cout << boxes[j - 1][i / 2].surrounded;
+                        setcolor(15);
+                        std::cout << " " << "|";
+                       
+                        continue;
+                    }
+
                     std::cout << " " << boxes[j - 1][i / 2].surrounded << " " << "|";
                     continue;
                 }
 
                 if (boxes[j - 1][i / 2].flagged == true)
                 {
-                    std::cout << " " << "*" << " " << "|";
+                    
+                    std::cout << " ";
+                    setcolor(4);
+                    std::cout << "*";
+                    setcolor(15);
+                    std::cout << " " << "|";
+                    
                     continue;
                 }
-                std::cout << " " << "?" << " " << "|";
+                
+                std::cout << " ";
+                setcolor(6);
+                std::cout << "?";
+                setcolor(15);
+                std::cout << " " << "|";
+                
             }
         }
 
