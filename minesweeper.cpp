@@ -497,7 +497,7 @@ bool game_over(string cmd)
     if (cmd[0] == 'o')
     {
         int pos_x = ((int) cmd[1]) - 64;
-        int pos_y = (int) cmd[2] - 48;
+        int pos_y = ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48;
         if (boxes[pos_x][pos_y].attribute == 1)
         {
             return true;
