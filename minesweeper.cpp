@@ -2,7 +2,8 @@
 #include <string>
 #include <cstdlib> 
 #include <time.h> 
-#include <windows.h>
+#include <windows.h>     //Insert color
+#include <sqlite3.h>     //Save data
 
 using namespace std;
 
@@ -25,13 +26,17 @@ box boxes[N][N];
 
 // Functions needed
 
-
+void setdefault();
 void set_bombs(int bombs, int height, int width);
 void update_surrounding(int y_located, int x_located);
 int draw(int height, int width);
 string take_command(int height, int width);
 void open(int pos_x, int pos_y, int height, int width);
 bool game_over(string cmd);
+bool newgame();
+bool save(int height, int width);
+void showboard(int height, int width);
+
 
 
 //Added to change text color
@@ -52,11 +57,318 @@ int main()
     
     std::cout << "Welcome to Minsweeper on terminal :)" << endl;
     std::cout << "Press enter to continue";
-    cin.get();
+    std::cin.get();
     
 
-    //Set default 
 
+    
+    //Rules
+
+    std::cout << std::endl;
+
+    std::cout << "Rules:\n";
+
+    std::cout << "To open: type in o and location with no spaces, row first(capital) and column after (eg. oA05)" << endl;
+    std::cout << "To flag: type in f and location with no spaces, row first(capital) and column after (eg. fC16)" << endl;
+    std::cout << "To unflag: type in u and location with no spaces, row first(capital) and column after (eg. uC06)" << endl;
+    std::cout << "When you're ready, press enter to continue" << endl;
+    std::cin.get();
+    std::cin.clear();    
+    
+
+    //Execute at every time the program run and loop when is_new_game is true
+    
+
+    bool is_new_game = false;
+
+
+    do
+    {
+        int board_height, board_width, bombs;
+        
+        //Set default 
+
+        setdefault();
+
+        //Open data from last game if saved
+
+        if (is_new_game == false)
+        {
+            sqlite3* db; 
+            sqlite3_stmt *st;
+            int value = 0;
+            int exit = 0;
+            int s_height;
+            int s_width; 
+            exit = sqlite3_open("minesdata.db", &db);
+
+            
+            string sql1 = "SELECT * FROM minesdata WHERE column = ? AND row = ?;";
+
+            int rt = sqlite3_prepare_v2(db, sql1.c_str(), -1, &st, NULL);
+
+            if (rt == SQLITE_OK)
+            {
+                sqlite3_bind_int(st, 1, value);
+                sqlite3_bind_int(st, 2, value);
+                sqlite3_step(st);
+            
+                s_height = sqlite3_column_int(st, 6);
+                s_width = sqlite3_column_int(st, 7);
+            }
+
+            //This can be executed when the program first run or new the last user did not save the process
+
+            if (s_height == 0)
+            {
+                is_new_game = true;
+                std::cout << "No records of last game, press enter to continue: ";
+                std::cin.get();
+            } 
+
+            //If the data is saved succesfully
+            //Assign the last game's data in to boxes
+
+            if (s_height != 0)
+            {
+                board_height = s_height;
+                board_width = s_width;
+                is_new_game = false;        //change the value to skip the following part, go straight to play-time
+                bombs = 0;
+
+                std::cout << "Loading last record..." << endl;
+
+                for (int i = 0; i < N; i++)
+                {
+                    for (int j = 0; j < N; j++)
+                    {
+                        int rc = sqlite3_prepare_v2(db, sql1.c_str(), -1, &st, NULL);
+                        if (rc == SQLITE_OK)
+                        {
+                            
+                            sqlite3_bind_int(st, 1, i);
+                            sqlite3_bind_int(st, 2, j);
+                            sqlite3_step(st);
+                            boxes[j][i].attribute = sqlite3_column_int(st, 2);
+                            boxes[j][i].status = sqlite3_column_int(st, 3);
+                            boxes[j][i].flagged = sqlite3_column_int(st, 4);
+                            boxes[j][i].surrounded = sqlite3_column_int(st, 5);
+                            if (boxes[j][i].attribute == 1)
+                            {
+                                bombs+= 1;
+                            }
+
+                            sqlite3_finalize(st);
+                        }
+                    }
+                }
+                
+
+                sqlite3_close(db);
+
+                std::cout << "Loaded. Press enter to continue: ";
+                std::cin.get();
+            }
+        }
+
+        
+        //Execute when new game is selected or the data of last game is not saved
+        //If the last game is saved, skip this part
+
+        if (is_new_game)
+        {
+            // Choose level
+
+            string str1;
+            std::cout << "Please choose difficulty level:\n";
+            std::cout << "A - Easy\n";
+            std::cout << "B - Medium\n";
+            std::cout << "C - Hard\n";
+            std::cout << "M - Customize your board\n";
+
+            
+
+            do
+            {
+                
+                std::cout << "Enter A or B or C or M" << endl;
+                std::cin >> str1;
+                
+                
+            } while ((str1[0] != 'A' && str1[0] != 'B' && str1[0] != 'C' && str1[0] != 'M') || str1.size() > 1);
+
+            std::cin.clear();
+
+            std::cin.get();
+
+            //Set up for level
+
+            
+
+            switch (str1[0])
+            {
+            case 'A':
+
+                board_height = 9;
+                board_width = 9;
+                bombs = 10;
+                break;
+            
+            case 'B':
+                board_height = 16;
+                board_width = 16;
+                bombs = 40;
+                break;
+            case 'C':
+                board_height = 30;
+                board_width = 16;
+                bombs = 99;
+                break;
+
+            case 'M':
+                std::cout << "Input the board's height (< 30): " << endl;
+                std::cin >> board_height;
+                std::cout << "Input the board's width (< 26): " << endl;
+                std::cin >> board_width;
+                std::cout << "Input number of bombs < " << board_height * board_width << " : " << endl;
+                std::cin >> bombs;
+
+            }
+
+            set_bombs(bombs, board_height, board_width);   //mines are at location, be carefull !
+
+            for (int i = 1; i <= board_height; i++)
+            {
+                for (int j = 1; j <= board_width; j++)
+                {
+                    if (boxes[j][i].attribute == 1)
+                    {
+                        continue;
+                    }
+                    update_surrounding(i, j);        //update to boxes.surrounded
+                }
+            }
+        
+        }
+
+
+        //PLAY-TIME
+
+        int max = board_height * board_width - bombs;
+        string cmd;
+        bool show_board = true;
+        
+
+        //Loop through the entire game
+
+
+        while (true)
+        {
+            //If their is no more box to open -> win
+
+            if (draw(board_height, board_width) >= max)
+            {
+                std::cout << "You win !" << endl;
+                std::cout << endl;
+                std::cout << "Press enter to continue";
+                std::cin.get();
+                is_new_game = newgame();
+                std::cout << "Press enter to show the board for last match: ";
+                std::cin.get();
+                break;
+            }
+        
+            std::cout << endl;
+
+            cmd = take_command(board_height, board_width);
+
+            //If new game is selected
+            if (cmd == "new")
+            {
+                is_new_game = true;
+                break;
+            }
+
+            //If not save is selected
+            if (cmd == "n")
+            {
+                is_new_game = false;
+                break;
+            }
+
+            //If save is chosen
+            if (cmd == "y")
+            {
+                is_new_game = false;
+                show_board = false;        //Change the value to avoid show_board
+                break;
+            }
+
+            //If clicked onto bomb
+            if (game_over(cmd))
+            {
+                std::cout << "Clicked onto bomb. Exploded." << endl;
+                std::cout << endl;
+                std::cout << "Game over" << endl;
+                std::cout << endl;
+                is_new_game = newgame();    // a small remind to revenge :)
+
+                //If the player does not want to take revenge
+                if (!is_new_game)
+                {
+                    std::cout << "Press enter to show board";
+                }
+
+                //Yeah...
+                if (is_new_game)
+                {
+                    std::cout << "Enter to show the board for last match: ";
+                }
+                
+                std::cin.get();
+                break;
+            }
+    
+        }
+
+        //End game, show board
+
+        if (show_board)
+        {
+            showboard(board_height, board_width);
+        
+        }
+
+        std::cout << "Press enter to continue: ";
+        std::cin.get();
+        
+    
+    } while(is_new_game);
+
+
+    //Goodbye
+
+    std::cout << "Press enter to log out";
+    std::cin.get();
+
+    std::cout << endl;
+
+    std::cout << "Have you enjoyed :) ? \n";
+    std::cout << endl;
+    std::cout << "Follow ShiinaDidn'tBlush on ButtBook !" << endl;
+    std::cout << endl;
+    std::cout << "Come back anytime. I will always be here, in the land of dawn ! \n";
+    std::cout << endl;
+
+    return 0;
+
+}
+
+
+//SET ALL TO 0 AT THE BEGINNING OF THE GAME
+
+void setdefault()
+{
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -68,147 +380,67 @@ int main()
             
         }
     }
+    return;
+}
 
-    //Rules
 
-    std::cout << std::endl;
+//SHOW RESULT AND UPDATE DATABASE TO BLANK AGAIN
 
-    std::cout << "Rules:\n";
+void showboard(int height, int width)
+{
+    //Show board
 
-    std::cout << "To open: type in o and location with no spaces, row first(capital) and column after (eg. oA05)" << endl;
-    std::cout << "To flag: type in f and location with no spaces, row first(capital) and column after (eg. fC16)" << endl;
-    std::cout << "To unflag: type in u and location with no spaces, row first(capital) and column after (eg. uC06)" << endl;
-    std::cout << "When you're ready, press enter to continue" << endl;
-    cin.get();
-    cin.clear();    
-    
-    // Choose level
-    
-    string str1;
-    std::cout << "Please choose difficulty level:\n";
-    std::cout << "A - Easy\n";
-    std::cout << "B - Medium\n";
-    std::cout << "C - Hard\n";
-
-    do
+    for (int i = 0; i <= height; i++)
     {
-        
-        std::cout << "Enter A or B or C" << endl;
-        cin >> str1;
-        
-        
-    } while ((str1[0] != 'A' && str1[0] != 'B' && str1[0] != 'C') || str1.size() > 1);
-
-    cin.clear();
-
-    cin.get();
-
-    //Set up for level
-
-    int board_height, board_width, bombs;
-
-    switch (str1[0])
-    {
-    case 'A':
-
-        board_height = 9;
-        board_width = 9;
-        bombs = 10;
-        break;
-    
-    case 'B':
-        board_height = 16;
-        board_width = 16;
-        bombs = 40;
-        break;
-    case 'C':
-        board_height = 30;
-        board_width = 16;
-        bombs = 99;
-        break;
-
-    }
-
-    set_bombs(bombs, board_height, board_width);   //mines are at location, be carefull !
-
-    for (int i = 1; i <= board_height; i++)
-    {
-        for (int j = 1; j <= board_width; j++)
+        for (int j = 0; j <= width; j++)
         {
-            if (boxes[j][i].attribute == 1)
-            {
-                continue;
-            }
-            update_surrounding(i, j);        //update to boxes.surrounded
-        }
-    }
-
-
-    //PLAY-TIME
-
-    int max = board_height * board_width - bombs;
-
-
-    //Loop through the entire game
-
-
-    while (true)
-    {
-        if (draw(board_height, board_width) >= max)
-        {
-            std::cout << "You win !" << endl;
-            std::cout << endl;
-            std::cout << "Press enter to continue";
-            cin.get();
-            break;
-        }
-       
-        std::cout << endl;
-
-        if (game_over(take_command(board_height, board_width)))
-        {
-            std::cout << "Clicked onto bomb. Exploded." << endl;
-            std::cout << endl;
-            std::cout << "Game over" << endl;
-            std::cout << "Press enter to show board";
-            cin.get();
-            break;
-        }
-   
-    }
-
-    //End game, show board
-
-    for (int i = 0; i <= board_height; i++)
-    {
-        for (int j = 0; j <= board_width; j++)
-        {
-              
+            
             boxes[j][i].status = 1;
-            boxes[j][i].surrounded = 0;
             
         }
     }
 
 
-    draw(board_height, board_width);
+    draw(height, width);
 
-    //Goodbye
+    //Reset data
 
-    std::cout << "Press enter to continue";
-    cin.get();
+    sqlite3* DB; 
+    sqlite3_stmt *st;
+    int value = 0;
+    int exit = 0; 
+    exit = sqlite3_open("minesdata.db", &DB);
 
-    std::cout << endl;
+    
+    string sql2 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
 
-    std::cout << "Have you enjoyed :) ? \n";
-    std::cout << endl;
-    std::cout << "Follow ShiinaDidn'tBlush on ButtBook !" << endl;
-    std::cout << endl;
-    std::cout << "Restart the program to play again \n";
-    std::cout << endl;
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            int rc = sqlite3_prepare_v2(DB, sql2.c_str(), -1, &st, NULL);
+            if (rc == SQLITE_OK)
+            {
+                
+                sqlite3_bind_int(st, 1, value);
+                sqlite3_bind_int(st, 2, value);
+                sqlite3_bind_int(st, 3, value);
+                sqlite3_bind_int(st, 4, value);
+                sqlite3_bind_int(st, 5, value);
+                sqlite3_bind_int(st, 6, value);
+                sqlite3_bind_int(st, 5, i);
+                sqlite3_bind_int(st, 6, j);
+                sqlite3_step(st);
+                sqlite3_finalize(st);
+            }
+        }
+    }
+    
 
-    return 0;
+    sqlite3_close(DB); 
 
+
+    return;
 }
 
 
@@ -350,7 +582,7 @@ int draw(int height, int width)
             {
                 if (i % 2 == 0)
                 {
-                    cout.width(2);
+                    std::cout.width(2);
                     std::cout << i / 2 << " ";
                     continue;
                 }
@@ -457,7 +689,7 @@ int draw(int height, int width)
                     continue;
                 }
 
-                if (boxes[j - 1][i / 2].flagged == true)
+                if (boxes[j - 1][i / 2].flagged)
                 {
                     
                     std::cout << " ";
@@ -494,21 +726,55 @@ string take_command(int height, int width)
 
     do
     {
-        std::cout << "Enter command (o or f or u): ";
+        std::cout << "Enter command (q to quit, n to remake): ";
     
-        getline(cin, cmd);
+        getline(std::cin, cmd);
+
+        if (cmd == "q")
+        {
+            break;
+        }
+
+        if (cmd == "n")
+        {
+            if (newgame())
+            {
+                return "new";
+            }
+
+            continue;
+            
+        }
         
     } while (cmd.size() != 4 || (cmd[0] != 'o' && cmd[0] != 'f' && cmd[0] != 'u'));
-    
-    
-    
-    
 
     
+    if (cmd == "q")
+    {        
+        
+        if (save(height, width))
+        {
+            
+            std::cout << "Your process is saved." << endl;
+            std::cout << "....." << endl;
+            return "y";
+        }
+        
+
+        if (newgame())
+        {
+            return "new";
+        }
+
+        return "n";
+        
+    }
+
+   
     while ((cmd[1] > (char) (width + 64) || cmd[1] < 'A') && (((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48 > height || ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48 < 1))
     {
         std::cout << "Enter command (o or f or u): ";
-        getline(cin, cmd);
+        getline(std::cin, cmd);
     }
 
     
@@ -538,8 +804,7 @@ string take_command(int height, int width)
 
 void open(int pos_x, int pos_y, int height, int width)
 {
-   
-
+  
     if (boxes[pos_x][pos_y].status == 1)
     {
         return;
@@ -599,6 +864,87 @@ bool game_over(string cmd)
 }
 
 
+//THIS FUNCTION IS CALLED WHENEVER I FEEL RIGHT (OR MAY BE NOT)
+
+bool newgame()
+{
+    string confirm;
+    
+    cout << "New game ? (If your game has not finished, the current proccess will be lost)" << endl;
+
+    do
+    {
+        cout << "Press y to confirm, if not press n: ";
+        getline(cin, confirm);
+
+    } while (confirm.size() != 1 || (confirm[0] != 'y' && confirm[0] != 'n'));
+
+
+    if (confirm == "n")
+    {
+        return false;
+    }
+
+    return true;
+}
+
+
+// SAVING SYSTEM WORKS BASED ON SQLITE
+
+bool save(int height, int width)
+{
+    string is_save;
+
+    std::cout << "Do you want to save the process ?" << endl;
+    
+
+    do
+    {
+        std::cout << "Enter y if yes, else enter n and the process will be lost: ";
+        getline(std::cin, is_save);
+
+    } while (is_save.size() != 1 || (is_save[0] != 'y' && is_save[0] != 'n'));
+
+    sqlite3* DB; 
+    sqlite3_stmt *st;
+    int exit = 0; 
+    exit = sqlite3_open("minesdata.db", &DB);
+
+    if (is_save == "y")
+    { 
+        string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
+
+        for (int i = 0; i < height; i++)
+        {
+            for (int j = 0; j < width; j++)
+            {
+                int rc = sqlite3_prepare_v2(DB, sql3.c_str(), -1, &st, NULL);
+                if (rc == SQLITE_OK)
+                {
+                    
+                    sqlite3_bind_int(st, 1, boxes[j][i].attribute);
+                    sqlite3_bind_int(st, 2, boxes[j][i].status);
+                    sqlite3_bind_int(st, 3, boxes[j][i].surrounded);
+                    sqlite3_bind_int(st, 4, boxes[j][i].flagged);
+                    sqlite3_bind_int(st, 5, height);
+                    sqlite3_bind_int(st, 6, width);
+                    sqlite3_bind_int(st, 7, i);
+                    sqlite3_bind_int(st, 8, j);
+                    sqlite3_step(st);
+                    sqlite3_finalize(st);
+                }
+            }
+        }
+        
+    
+        sqlite3_close(DB); 
+
+        return true;
+    
+    }
+
+    return false;
+}
 
 
 
