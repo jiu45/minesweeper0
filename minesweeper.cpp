@@ -94,7 +94,7 @@ int main()
 
         if (is_new_game == false)
         {
-            sqlite3* db; 
+            sqlite3* db;
             sqlite3_stmt *st;
             int value = 0;
             int exit = 0;
@@ -112,10 +112,14 @@ int main()
                 sqlite3_bind_int(st, 1, value);
                 sqlite3_bind_int(st, 2, value);
                 sqlite3_step(st);
-            
+
                 s_height = sqlite3_column_int(st, 6);
                 s_width = sqlite3_column_int(st, 7);
+
+                sqlite3_finalize(st);
             }
+
+            
 
             //This can be executed when the program first run or new the last user did not save the process
 
@@ -131,6 +135,7 @@ int main()
 
             if (s_height != 0)
             {
+                
                 board_height = s_height;
                 board_width = s_width;
                 is_new_game = false;        //change the value to skip the following part, go straight to play-time
@@ -164,11 +169,11 @@ int main()
                 }
                 
 
-                sqlite3_close(db);
-
                 std::cout << "Loaded. Press enter to continue: ";
                 std::cin.get();
             }
+
+            sqlite3_close(db);
         }
 
         
@@ -405,40 +410,47 @@ void showboard(int height, int width)
 
     //Reset data
 
+    int insert = 0;
+ 
     sqlite3* DB; 
     sqlite3_stmt *st;
-    int value = 0;
     int exit = 0; 
     exit = sqlite3_open("minesdata.db", &DB);
 
     
-    string sql2 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
+    string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
 
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
         {
-            int rc = sqlite3_prepare_v2(DB, sql2.c_str(), -1, &st, NULL);
+            int rc = sqlite3_prepare_v2(DB, sql3.c_str(), -1, &st, NULL);
             if (rc == SQLITE_OK)
             {
                 
-                sqlite3_bind_int(st, 1, value);
-                sqlite3_bind_int(st, 2, value);
-                sqlite3_bind_int(st, 3, value);
-                sqlite3_bind_int(st, 4, value);
-                sqlite3_bind_int(st, 5, value);
-                sqlite3_bind_int(st, 6, value);
-                sqlite3_bind_int(st, 5, i);
-                sqlite3_bind_int(st, 6, j);
+                sqlite3_bind_int(st, 1, insert);
+                sqlite3_bind_int(st, 2, insert);
+                sqlite3_bind_int(st, 3, insert);
+                sqlite3_bind_int(st, 4, insert);
+                sqlite3_bind_int(st, 5, insert);
+                sqlite3_bind_int(st, 6, insert);
+
+                
+                sqlite3_bind_int(st, 7, i);
+                sqlite3_bind_int(st, 8, j);
                 sqlite3_step(st);
                 sqlite3_finalize(st);
+            }
+
+            if (rc != SQLITE_OK)
+            {
+                cout << "fail" << endl;
             }
         }
     }
     
 
     sqlite3_close(DB); 
-
 
     return;
 }
@@ -756,7 +768,6 @@ string take_command(int height, int width)
         {
             
             std::cout << "Your process is saved." << endl;
-            std::cout << "....." << endl;
             return "y";
         }
         
@@ -893,6 +904,8 @@ bool newgame()
 
 bool save(int height, int width)
 {
+    int upper_hi = height + 2;
+    int upper_wi = width + 2;
     string is_save;
 
     std::cout << "Do you want to save the process ?" << endl;
@@ -911,12 +924,14 @@ bool save(int height, int width)
     exit = sqlite3_open("minesdata.db", &DB);
 
     if (is_save == "y")
-    { 
+    {
+        cout << "....." << endl;
+        cout << endl; 
         string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
 
-        for (int i = 0; i < height; i++)
+        for (int i = 0; i < upper_hi; i++)
         {
-            for (int j = 0; j < width; j++)
+            for (int j = 0; j < upper_wi; j++)
             {
                 int rc = sqlite3_prepare_v2(DB, sql3.c_str(), -1, &st, NULL);
                 if (rc == SQLITE_OK)
