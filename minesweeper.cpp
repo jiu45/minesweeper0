@@ -1,9 +1,11 @@
 #include <iostream>
 #include <string>
 #include <cstdlib> 
-#include <time.h> 
+#include <time.h>
+#include <chrono> 
 #include <windows.h>     //Insert color
 #include <sqlite3.h>     //Save data
+
 
 using namespace std;
 
@@ -29,12 +31,14 @@ box boxes[N][N];
 void setdefault();
 void set_bombs(int bombs, int height, int width);
 void update_surrounding(int y_located, int x_located);
+int cal_3bd(int height, int width);
 int draw(int height, int width);
-string take_command(int height, int width);
+string take_command(int height, int width, int thbd);
 void open(int pos_x, int pos_y, int height, int width);
+void reverse_open(int pos_x, int pos_y, int height, int width);
 bool game_over(string cmd);
 bool newgame();
-bool save(int height, int width);
+bool save(int height, int width, int thbd, int time, bool condition);
 void showboard(int height, int width);
 
 
@@ -49,12 +53,13 @@ string setcolor(unsigned short color)
 }
 
 
+
 //MAIN
 
 int main()
 {
     // Welcome user
-    
+    std::cout << endl;
     std::cout << "Welcome to Minsweeper on terminal :)" << endl;
     std::cout << "Press enter to continue";
     std::cin.get();
@@ -85,6 +90,8 @@ int main()
     do
     {
         int board_height, board_width, bombs;
+        int thbd;
+        int saved_game_time = 0;
         
         //Set default 
 
@@ -99,7 +106,8 @@ int main()
             int value = 0;
             int exit = 0;
             int s_height;
-            int s_width; 
+            int s_width;
+            int s_thbd; 
             exit = sqlite3_open("minesdata.db", &db);
 
             
@@ -115,7 +123,8 @@ int main()
 
                 s_height = sqlite3_column_int(st, 6);
                 s_width = sqlite3_column_int(st, 7);
-
+                s_thbd = sqlite3_column_int(st, 8);
+                saved_game_time = sqlite3_column_int(st, 9);
                 sqlite3_finalize(st);
             }
 
@@ -128,6 +137,7 @@ int main()
                 is_new_game = true;
                 std::cout << "No records of last game, press enter to continue: ";
                 std::cin.get();
+                std::cout << endl;
             } 
 
             //If the data is saved succesfully
@@ -138,6 +148,7 @@ int main()
                 
                 board_height = s_height;
                 board_width = s_width;
+                thbd = s_thbd;
                 is_new_game = false;        //change the value to skip the following part, go straight to play-time
                 bombs = 0;
 
@@ -186,17 +197,18 @@ int main()
 
             string str1;
             std::cout << "Please choose difficulty level:\n";
+            std::cout << endl;
             std::cout << "A - Easy\n";
             std::cout << "B - Medium\n";
             std::cout << "C - Hard\n";
             std::cout << "M - Customize your board\n";
-
+            std::cout << endl;
             
 
             do
             {
                 
-                std::cout << "Enter A or B or C or M" << endl;
+                std::cout << "Enter A or B or C or M: " << endl;
                 std::cin >> str1;
                 
                 
@@ -253,6 +265,10 @@ int main()
                     update_surrounding(i, j);        //update to boxes.surrounded
                 }
             }
+
+            //Calculate 3bd
+
+            thbd = cal_3bd(board_height, board_width);
         
         }
 
@@ -261,8 +277,11 @@ int main()
 
         int max = board_height * board_width - bombs;
         string cmd;
+        bool win = false;
         bool show_board = true;
-        
+        bool start_timer = true;
+        std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
+        std::chrono::duration<long long, std::ratio<1, 1>> duration;
 
         //Loop through the entire game
 
@@ -271,8 +290,12 @@ int main()
         {
             //If their is no more box to open -> win
 
+            system("cls");
+
             if (draw(board_height, board_width) >= max)
             {
+                end = std::chrono::high_resolution_clock::now();
+                win = true;
                 std::cout << "You win !" << endl;
                 std::cout << endl;
                 std::cout << "Press enter to continue";
@@ -285,11 +308,18 @@ int main()
         
             std::cout << endl;
 
-            cmd = take_command(board_height, board_width);
+            cmd = take_command(board_height, board_width, thbd);
+
+            if (start_timer)
+            {
+                start = std::chrono::high_resolution_clock::now();
+                start_timer = false;
+            }
 
             //If new game is selected
             if (cmd == "new")
-            {
+            {   
+                end = std::chrono::high_resolution_clock::now();
                 is_new_game = true;
                 break;
             }
@@ -297,6 +327,7 @@ int main()
             //If not save is selected
             if (cmd == "n")
             {
+                end = std::chrono::high_resolution_clock::now();
                 is_new_game = false;
                 break;
             }
@@ -304,6 +335,7 @@ int main()
             //If save is chosen
             if (cmd == "y")
             {
+                end = std::chrono::high_resolution_clock::now();
                 is_new_game = false;
                 show_board = false;        //Change the value to avoid show_board
                 break;
@@ -312,6 +344,7 @@ int main()
             //If clicked onto bomb
             if (game_over(cmd))
             {
+                end = std::chrono::high_resolution_clock::now();
                 std::cout << "Clicked onto bomb. Exploded." << endl;
                 std::cout << endl;
                 std::cout << "Game over" << endl;
@@ -338,12 +371,30 @@ int main()
 
         //End game, show board
 
+        duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+        int seconds = duration.count() + saved_game_time;
+
         if (show_board)
         {
             showboard(board_height, board_width);
+
+            std::cout << "Game time: " << seconds << " seconds." << endl;
+            std::cout << endl;
         
         }
 
+        if (!show_board)
+        {
+            save(board_height, board_width, thbd, seconds, show_board);
+        }
+
+
+        if (win)
+        {
+            std::cout << "Scores: " << (double) thbd / seconds * 1000 << endl;
+            std::cout << endl;
+        }
+        
         std::cout << "Press enter to continue: ";
         std::cin.get();
         
@@ -418,7 +469,7 @@ void showboard(int height, int width)
     exit = sqlite3_open("minesdata.db", &DB);
 
     
-    string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
+    string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ?, thbd = ?, time = ? WHERE column = ? AND row = ?;"; 
 
     for (int i = 0; i < N; i++)
     {
@@ -434,10 +485,10 @@ void showboard(int height, int width)
                 sqlite3_bind_int(st, 4, insert);
                 sqlite3_bind_int(st, 5, insert);
                 sqlite3_bind_int(st, 6, insert);
-
-                
-                sqlite3_bind_int(st, 7, i);
-                sqlite3_bind_int(st, 8, j);
+                sqlite3_bind_int(st, 7, insert);
+                sqlite3_bind_int(st, 8, insert);
+                sqlite3_bind_int(st, 9, i);
+                sqlite3_bind_int(st, 10, j);
                 sqlite3_step(st);
                 sqlite3_finalize(st);
             }
@@ -537,6 +588,43 @@ void update_surrounding(int y_located, int x_located)
 
     return;
 }
+
+
+//Calculate 3bd
+
+int cal_3bd(int height, int width)
+{
+    int count = 0;
+
+    for (int i = 1; i <= height; i++)
+    {
+        for (int j = 1; j <= width; j++)
+        {
+            if (boxes[j][i].attribute == 0)
+            {
+                if (boxes[j][i].status == 0)
+                {
+                    count++;
+                    reverse_open(i, j, height, width);
+                }
+                
+            }
+            
+        }
+    }
+
+    for (int i = 0; i <= height; i++)
+    {
+        for (int j = 1; j <= width; j++)
+        {
+            boxes[j][i].status =0;
+        }
+    }
+
+    return count;
+}
+
+
 
 //DRAW BOARD
 
@@ -731,7 +819,7 @@ int draw(int height, int width)
 
 //TAKE COMMANDS, EXECUTE COMMANDS
 
-string take_command(int height, int width)
+string take_command(int height, int width, int thbd)
 {
 
     string cmd;
@@ -764,7 +852,7 @@ string take_command(int height, int width)
     if (cmd == "q")
     {        
         
-        if (save(height, width))
+        if (save(height, width, thbd, 5, true))
         {
             
             std::cout << "Your process is saved." << endl;
@@ -856,6 +944,49 @@ void open(int pos_x, int pos_y, int height, int width)
 
 }
 
+
+// For calculate 3bd
+
+void reverse_open(int pos_x, int pos_y, int height, int width)
+{
+    int start_y = pos_y - 1;
+    int end_y = pos_y + 2;
+    int start_x = pos_x - 1;
+    int end_x = pos_x +2;
+
+    
+    for (int i = start_y; i < end_y; i++)
+    {
+        if (i < 1 || i > height)
+        {
+            continue;
+        }
+
+        for (int j = pos_x - 1; j < pos_x + 2; j++)
+        {
+            if (j < 1 || j > width)
+            {
+                continue;
+            }
+           
+            if (boxes[j][i].attribute == 0)
+            {
+                if (boxes[j][i].status == 0)
+                {
+                    if (boxes[j][i].surrounded == 0)
+                    {
+                        open(j, i, height, width);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    return;
+}
+
+
 //CHECK FOR GAME-OVER
 
 bool game_over(string cmd)
@@ -902,60 +1033,89 @@ bool newgame()
 
 // SAVING SYSTEM WORKS BASED ON SQLITE
 
-bool save(int height, int width)
+bool save(int height, int width, int thbd, int time, bool condition)
 {
-    int upper_hi = height + 2;
-    int upper_wi = width + 2;
-    string is_save;
-
-    std::cout << "Do you want to save the process ?" << endl;
     
-
-    do
+    if (condition == true)
     {
-        std::cout << "Enter y if yes, else enter n and the process will be lost: ";
-        getline(std::cin, is_save);
+        int upper_hi = height + 2;
+        int upper_wi = width + 2;
+        string is_save;
 
-    } while (is_save.size() != 1 || (is_save[0] != 'y' && is_save[0] != 'n'));
+        std::cout << "Do you want to save the process ?" << endl;
 
-    sqlite3* DB; 
-    sqlite3_stmt *st;
-    int exit = 0; 
-    exit = sqlite3_open("minesdata.db", &DB);
-
-    if (is_save == "y")
-    {
-        cout << "....." << endl;
-        cout << endl; 
-        string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ? WHERE column = ? AND row = ?;"; 
-
-        for (int i = 0; i < upper_hi; i++)
+        do
         {
-            for (int j = 0; j < upper_wi; j++)
+            std::cout << "Enter y if yes, else enter n and the process will be lost: ";
+            getline(std::cin, is_save);
+
+        } while (is_save.size() != 1 || (is_save[0] != 'y' && is_save[0] != 'n'));
+
+
+        sqlite3* DB; 
+        sqlite3_stmt *st;
+        int exit = 0; 
+        exit = sqlite3_open("minesdata.db", &DB);
+
+        if (is_save == "y")
+        {
+            cout << "....." << endl;
+            cout << endl; 
+            string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ?, thbd = ? WHERE column = ? AND row = ?;"; 
+
+            for (int i = 0; i < upper_hi; i++)
             {
-                int rc = sqlite3_prepare_v2(DB, sql3.c_str(), -1, &st, NULL);
-                if (rc == SQLITE_OK)
+                for (int j = 0; j < upper_wi; j++)
                 {
-                    
-                    sqlite3_bind_int(st, 1, boxes[j][i].attribute);
-                    sqlite3_bind_int(st, 2, boxes[j][i].status);
-                    sqlite3_bind_int(st, 3, boxes[j][i].surrounded);
-                    sqlite3_bind_int(st, 4, boxes[j][i].flagged);
-                    sqlite3_bind_int(st, 5, height);
-                    sqlite3_bind_int(st, 6, width);
-                    sqlite3_bind_int(st, 7, i);
-                    sqlite3_bind_int(st, 8, j);
-                    sqlite3_step(st);
-                    sqlite3_finalize(st);
+                    int rc = sqlite3_prepare_v2(DB, sql3.c_str(), -1, &st, NULL);
+                    if (rc == SQLITE_OK)
+                    {
+                        
+                        sqlite3_bind_int(st, 1, boxes[j][i].attribute);
+                        sqlite3_bind_int(st, 2, boxes[j][i].status);
+                        sqlite3_bind_int(st, 3, boxes[j][i].surrounded);
+                        sqlite3_bind_int(st, 4, boxes[j][i].flagged);
+                        sqlite3_bind_int(st, 5, height);
+                        sqlite3_bind_int(st, 6, width);
+                        sqlite3_bind_int(st, 7, thbd);
+                        sqlite3_bind_int(st, 8, i);
+                        sqlite3_bind_int(st, 9, j);
+                        sqlite3_step(st);
+                        sqlite3_finalize(st);
+                    }
                 }
             }
-        }
+            
         
-    
-        sqlite3_close(DB); 
+            sqlite3_close(DB); 
 
-        return true;
+            return true;
+        
+        }
+
+    }
     
+    if (condition == false)
+    {
+        sqlite3* DB; 
+        sqlite3_stmt *st;
+        int exit = 0; 
+        exit = sqlite3_open("minesdata.db", &DB);
+
+        string sql4 = "UPDATE minesdata SET time = ? WHERE column = ? AND row = ?;";
+
+        int re = sqlite3_prepare_v2(DB, sql4.c_str(), -1, &st, NULL);
+
+        if (re == SQLITE_OK)
+        {
+            sqlite3_bind_int(st, 1, time);
+            sqlite3_bind_int(st, 2, 0);
+            sqlite3_bind_int(st, 3, 0);
+            sqlite3_step(st);
+            sqlite3_finalize(st);
+            sqlite3_close(DB);
+        }
+  
     }
 
     return false;
