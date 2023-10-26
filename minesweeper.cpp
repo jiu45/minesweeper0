@@ -32,14 +32,16 @@ void setdefault();
 void set_bombs(int bombs, int height, int width);
 void update_surrounding(int y_located, int x_located);
 int cal_3bd(int height, int width);
-int draw(int height, int width);
-string take_command(int height, int width, int thbd);
+int draw(int height, int width, int game_mode, int hiscore);
+string take_command(int height, int width, int thbd, int game_mode);
 void open(int pos_x, int pos_y, int height, int width);
 void reverse_open(int pos_x, int pos_y, int height, int width);
 bool game_over(string cmd);
 bool newgame();
-bool save(int height, int width, int thbd, int time, bool condition);
-void showboard(int height, int width);
+bool save(int height, int width, int thbd, int time, int hiscore, int game_mode, int cases);
+void showboard(int height, int width, int game_mode, int hiscore);
+int receive_highscore(int game_mode);
+bool manage_high_score(int score, int high_score, int game_mode);
 
 
 
@@ -92,6 +94,7 @@ int main()
         int board_height, board_width, bombs;
         int thbd;
         int saved_game_time = 0;
+        int game_mode;
         
         //Set default 
 
@@ -108,6 +111,7 @@ int main()
             int s_height;
             int s_width;
             int s_thbd; 
+            int s_mode;
             exit = sqlite3_open("minesdata.db", &db);
 
             
@@ -125,6 +129,7 @@ int main()
                 s_width = sqlite3_column_int(st, 7);
                 s_thbd = sqlite3_column_int(st, 8);
                 saved_game_time = sqlite3_column_int(st, 9);
+                s_mode = sqlite3_column_int(st, 11);
                 sqlite3_finalize(st);
             }
 
@@ -149,6 +154,7 @@ int main()
                 board_height = s_height;
                 board_width = s_width;
                 thbd = s_thbd;
+                game_mode = s_mode;
                 is_new_game = false;        //change the value to skip the following part, go straight to play-time
                 bombs = 0;
 
@@ -198,10 +204,10 @@ int main()
             string str1;
             std::cout << "Please choose difficulty level:\n";
             std::cout << endl;
-            std::cout << "A - Easy\n";
-            std::cout << "B - Medium\n";
-            std::cout << "C - Hard\n";
-            std::cout << "M - Customize your board\n";
+            std::cout << "A - Easy\n";          //mode 0
+            std::cout << "B - Medium\n";        //mode 1
+            std::cout << "C - Hard\n";          //mode 2
+            std::cout << "M - Customize your board\n";       //mode 3
             std::cout << endl;
             
 
@@ -229,20 +235,24 @@ int main()
                 board_height = 9;
                 board_width = 9;
                 bombs = 10;
+                game_mode = 0;
                 break;
             
             case 'B':
                 board_height = 16;
                 board_width = 16;
                 bombs = 40;
+                game_mode = 1;
                 break;
             case 'C':
                 board_height = 30;
                 board_width = 16;
                 bombs = 99;
+                game_mode = 2;
                 break;
 
             case 'M':
+                game_mode = 3;
                 std::cout << "Input the board's height (< 30): " << endl;
                 std::cin >> board_height;
                 std::cout << "Input the board's width (< 26): " << endl;
@@ -282,9 +292,9 @@ int main()
         bool start_timer = true;
         std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
         std::chrono::duration<long long, std::ratio<1, 1>> duration;
+        int hi_score = receive_highscore(game_mode);
 
         //Loop through the entire game
-
 
         while (true)
         {
@@ -292,15 +302,17 @@ int main()
 
             system("cls");
 
-            if (draw(board_height, board_width) >= max)
+            if (draw(board_height, board_width, game_mode, hi_score) >= max)
             {
                 end = std::chrono::high_resolution_clock::now();
                 win = true;
+                std::cout << endl;
                 std::cout << "You win !" << endl;
                 std::cout << endl;
                 std::cout << "Press enter to continue";
                 std::cin.get();
                 is_new_game = newgame();
+                std::cout << endl;
                 std::cout << "Press enter to show the board for last match: ";
                 std::cin.get();
                 break;
@@ -308,7 +320,7 @@ int main()
         
             std::cout << endl;
 
-            cmd = take_command(board_height, board_width, thbd);
+            cmd = take_command(board_height, board_width, thbd, game_mode);
 
             if (start_timer)
             {
@@ -348,9 +360,8 @@ int main()
                 std::cout << "Clicked onto bomb. Exploded." << endl;
                 std::cout << endl;
                 std::cout << "Game over" << endl;
-                std::cout << endl;
                 is_new_game = newgame();    // a small remind to revenge :)
-
+                std::cout << endl;
                 //If the player does not want to take revenge
                 if (!is_new_game)
                 {
@@ -376,8 +387,8 @@ int main()
 
         if (show_board)
         {
-            showboard(board_height, board_width);
-
+            showboard(board_height, board_width, game_mode, hi_score);
+            std::cout << endl;
             std::cout << "Game time: " << seconds << " seconds." << endl;
             std::cout << endl;
         
@@ -385,14 +396,22 @@ int main()
 
         if (!show_board)
         {
-            save(board_height, board_width, thbd, seconds, show_board);
+            save(board_height, board_width, thbd, seconds, -1, game_mode, 2);
         }
 
 
         if (win)
         {
-            std::cout << "Scores: " << (double) thbd / seconds * 1000 << endl;
+            int scores = (double) thbd / seconds * 1000;
             std::cout << endl;
+            std::cout << "Score: " << scores << endl;
+            std::cout << endl;
+            
+            if (manage_high_score(scores, hi_score, game_mode))
+            {
+                save(board_height, board_width, thbd, seconds, scores, game_mode, 3);
+            }
+            
         }
         
         std::cout << "Press enter to continue: ";
@@ -442,7 +461,7 @@ void setdefault()
 
 //SHOW RESULT AND UPDATE DATABASE TO BLANK AGAIN
 
-void showboard(int height, int width)
+void showboard(int height, int width, int game_mode, int hiscore)
 {
     //Show board
 
@@ -457,7 +476,7 @@ void showboard(int height, int width)
     }
 
 
-    draw(height, width);
+    draw(height, width, game_mode, hiscore);
 
     //Reset data
 
@@ -495,7 +514,7 @@ void showboard(int height, int width)
 
             if (rc != SQLITE_OK)
             {
-                cout << "fail" << endl;
+                std::cout << "fail" << endl;
             }
         }
     }
@@ -628,12 +647,28 @@ int cal_3bd(int height, int width)
 
 //DRAW BOARD
 
-int draw(int height, int width)
+int draw(int height, int width, int game_mode, int hiscore)
 {
     int opened = 0;
-
     int vert_bound = height * 2 + 2;
     int hor_bound = width + 2;
+
+    if (game_mode == 0)
+    {
+        std::cout << "Easy - Best score: " << hiscore << endl;
+    }
+
+    if (game_mode == 1)
+    {
+        std::cout << "Medium - Best score: " << hiscore << endl;
+    }
+
+    if (game_mode == 2)
+    {
+        std::cout << "Hard - Best score: " << hiscore << endl;
+    }
+
+    std::cout << endl;
 
     for (int i = 0; i < vert_bound; i++)
     {
@@ -819,7 +854,7 @@ int draw(int height, int width)
 
 //TAKE COMMANDS, EXECUTE COMMANDS
 
-string take_command(int height, int width, int thbd)
+string take_command(int height, int width, int thbd, int game_mode)
 {
 
     string cmd;
@@ -852,7 +887,7 @@ string take_command(int height, int width, int thbd)
     if (cmd == "q")
     {        
         
-        if (save(height, width, thbd, 5, true))
+        if (save(height, width, thbd, 5, -1, game_mode, 1))
         {
             
             std::cout << "Your process is saved." << endl;
@@ -1011,12 +1046,14 @@ bool game_over(string cmd)
 bool newgame()
 {
     string confirm;
+
+    std::cout << endl;
     
-    cout << "New game ? (If your game has not finished, the current proccess will be lost)" << endl;
+    std::cout << "New game ? (If your game has not finished, the current proccess will be lost)" << endl;
 
     do
     {
-        cout << "Press y to confirm, if not press n: ";
+        std::cout << "Press y to confirm, if not press n: ";
         getline(cin, confirm);
 
     } while (confirm.size() != 1 || (confirm[0] != 'y' && confirm[0] != 'n'));
@@ -1033,10 +1070,10 @@ bool newgame()
 
 // SAVING SYSTEM WORKS BASED ON SQLITE
 
-bool save(int height, int width, int thbd, int time, bool condition)
+bool save(int height, int width, int thbd, int time, int hiscore, int game_mode, int cases)
 {
     
-    if (condition == true)
+    if (cases == 1)
     {
         int upper_hi = height + 2;
         int upper_wi = width + 2;
@@ -1052,16 +1089,16 @@ bool save(int height, int width, int thbd, int time, bool condition)
         } while (is_save.size() != 1 || (is_save[0] != 'y' && is_save[0] != 'n'));
 
 
-        sqlite3* DB; 
-        sqlite3_stmt *st;
-        int exit = 0; 
-        exit = sqlite3_open("minesdata.db", &DB);
-
         if (is_save == "y")
         {
-            cout << "....." << endl;
-            cout << endl; 
-            string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ?, thbd = ? WHERE column = ? AND row = ?;"; 
+            sqlite3* DB; 
+            sqlite3_stmt *st;
+            int exit = 0; 
+            exit = sqlite3_open("minesdata.db", &DB);
+
+            std::cout << "....." << endl;
+            std::cout << endl; 
+            string sql3 = "UPDATE minesdata SET attribute = ?, status = ?, surrounded = ?, flagged = ?, height = ?, width = ?, thbd = ?, mode = ? WHERE column = ? AND row = ?;"; 
 
             for (int i = 0; i < upper_hi; i++)
             {
@@ -1078,24 +1115,21 @@ bool save(int height, int width, int thbd, int time, bool condition)
                         sqlite3_bind_int(st, 5, height);
                         sqlite3_bind_int(st, 6, width);
                         sqlite3_bind_int(st, 7, thbd);
-                        sqlite3_bind_int(st, 8, i);
-                        sqlite3_bind_int(st, 9, j);
+                        sqlite3_bind_int(st, 8, game_mode);
+                        sqlite3_bind_int(st, 9, i);
+                        sqlite3_bind_int(st, 10, j);
                         sqlite3_step(st);
                         sqlite3_finalize(st);
                     }
                 }
             }
             
-        
             sqlite3_close(DB); 
-
             return true;
-        
         }
-
     }
     
-    if (condition == false)
+    if (cases == 2)
     {
         sqlite3* DB; 
         sqlite3_stmt *st;
@@ -1113,9 +1147,35 @@ bool save(int height, int width, int thbd, int time, bool condition)
             sqlite3_bind_int(st, 3, 0);
             sqlite3_step(st);
             sqlite3_finalize(st);
-            sqlite3_close(DB);
         }
+
+        sqlite3_close(DB);
   
+    }
+
+
+    if (cases == 3)
+    {
+        sqlite3* DB; 
+        sqlite3_stmt *st;
+        int exit = 0; 
+        exit = sqlite3_open("minesdata.db", &DB);
+
+        string sql5 = "UPDATE minesdata SET hiscore = ? WHERE column = ? AND row = ?;";
+
+        int re = sqlite3_prepare_v2(DB, sql5.c_str(), -1, &st, NULL);
+
+        if (re == SQLITE_OK)
+        {
+            sqlite3_bind_int(st, 1, hiscore);
+            sqlite3_bind_int(st, 2, 0);
+            sqlite3_bind_int(st, 3, game_mode);
+            sqlite3_step(st);
+            sqlite3_finalize(st);
+        }
+
+        sqlite3_close(DB);
+
     }
 
     return false;
@@ -1123,3 +1183,91 @@ bool save(int height, int width, int thbd, int time, bool condition)
 
 
 
+//Take high_score in the database
+
+int receive_highscore(int game_mode)
+{
+    sqlite3* db;
+    sqlite3_stmt *st;
+    int value = 0;
+    int exit = 0;
+    int hiscore;
+    exit = sqlite3_open("minesdata.db", &db);
+
+    
+    string sql1 = "SELECT * FROM minesdata WHERE column = ? AND row = ?;";
+
+    int rt = sqlite3_prepare_v2(db, sql1.c_str(), -1, &st, NULL);
+
+    if (rt == SQLITE_OK)
+    {
+        sqlite3_bind_int(st, 1, value);
+        sqlite3_bind_int(st, 2, game_mode);
+        sqlite3_step(st);
+
+        hiscore = sqlite3_column_int(st, 10);
+        sqlite3_finalize(st);
+    }
+
+    return hiscore;
+}
+
+
+
+//Manage high score
+
+bool manage_high_score(int score, int high_score, int game_mode)
+{
+    if (game_mode == 0)
+    {
+        if (score > high_score)
+        {
+            std::cout << "Best score (easy mode): " << score << endl;
+            std::cout << endl;
+            return true;
+        }
+        else
+        {
+            std::cout << "Best score (easy mode): " << high_score << endl;
+            std::cout << endl;
+        }
+        return false;
+        
+    }
+
+    if (game_mode == 1)
+    {
+        if (score > high_score)
+        {
+            std::cout << "Best score (medium mode): " << score << endl;
+            std::cout << endl;
+            return true;
+        }
+        else
+        {
+            std::cout << "Best score (medium mode): " << high_score << endl;
+            std::cout << endl;
+        }
+        return false;
+        
+    }
+
+    if (game_mode == 2)
+    {
+        if (score > high_score)
+        {
+            std::cout << "Best score (hard mode): " << score << endl;
+            std::cout << endl;
+            return true;
+        }
+        else
+        {
+            std::cout << "Best score (hard mode): " << high_score << endl;
+            std::cout << endl;
+        }
+        return false;
+        
+    }
+
+    return false;
+}
