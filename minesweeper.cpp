@@ -5,6 +5,8 @@
 #include <chrono> 
 #include <windows.h>     //Insert color
 #include <sqlite3.h>     //Save data
+#include <conio.h>
+#include <iomanip>
 
 
 using namespace std;
@@ -32,8 +34,10 @@ void setdefault();
 void set_bombs(int bombs, int height, int width);
 void update_surrounding(int y_located, int x_located);
 int cal_3bd(int height, int width);
-int draw(int height, int width, int game_mode, int hiscore);
-string take_command(int height, int width, int thbd, int game_mode);
+int draw(int height, int width, int game_mode, int hiscore, string cell);
+string take_command(int height, int width, int thbd, int game_mode, int hiscore, string cell);
+bool check_cell(string cmd, int height, int width);
+string handleInput(string cell, int height, int width, int game_mode, int hiscore);
 void open(int pos_x, int pos_y, int height, int width);
 void reverse_open(int pos_x, int pos_y, int height, int width);
 bool game_over(string cmd);
@@ -293,6 +297,7 @@ int main()
         std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
         std::chrono::duration<long long, std::ratio<1, 1>> duration;
         int hi_score = receive_highscore(game_mode);
+        string cell = "A01";
 
         //Loop through the entire game
 
@@ -302,7 +307,7 @@ int main()
 
             system("cls");
 
-            if (draw(board_height, board_width, game_mode, hi_score) >= max)
+            if (draw(board_height, board_width, game_mode, hi_score, cell) >= max)
             {
                 end = std::chrono::high_resolution_clock::now();
                 win = true;
@@ -320,7 +325,9 @@ int main()
         
             std::cout << endl;
 
-            cmd = take_command(board_height, board_width, thbd, game_mode);
+            cmd = take_command(board_height, board_width, thbd, game_mode, hi_score, cell);
+            cell = cmd;
+            cell.resize(3);
 
             if (start_timer)
             {
@@ -476,7 +483,7 @@ void showboard(int height, int width, int game_mode, int hiscore)
     }
 
 
-    draw(height, width, game_mode, hiscore);
+    draw(height, width, game_mode, hiscore, "A00");
 
     //Reset data
 
@@ -647,11 +654,14 @@ int cal_3bd(int height, int width)
 
 //DRAW BOARD
 
-int draw(int height, int width, int game_mode, int hiscore)
+int draw(int height, int width, int game_mode, int hiscore, string cell)
 {
     int opened = 0;
     int vert_bound = height * 2 + 2;
     int hor_bound = width + 2;
+
+    int column = ((int) cell[0]) - 64;
+    int row = stoi(cell.substr(1));
 
     if (game_mode == 0)
     {
@@ -708,6 +718,14 @@ int draw(int height, int width, int game_mode, int hiscore)
                 }
                 else
                 {
+                    if (row == 1 && j == column + 1)
+                    {
+                        setcolor(5);
+                        std::cout << "___" << " "; 
+                        setcolor(15);
+                        continue;
+                    }
+
                     std::cout << "___" << " ";
                     continue;
                 }
@@ -730,13 +748,61 @@ int draw(int height, int width, int game_mode, int hiscore)
 
             if (j == 1)
             {
+                if (column == 1 && (i == row * 2 || i == row * 2 + 1))
+                {
+                    setcolor(5);
+                    std::cout << "|";
+                    setcolor(15);
+                    continue;
+                }
+
                 std::cout << "|";
                 continue;
             }
 
             if (i % 2 != 0)
             {
+                if (j == column + 1 && (i == row * 2 + 1 || i == row * 2 - 1))
+                {
+                    setcolor(5);
+                    std::cout << "___";
+                    setcolor(15);
+
+                    if ((j == column + 1 || j == column) && i == row * 2 + 1)
+                    {
+                        setcolor(5);
+                        std::cout << "|";
+                        setcolor(15);
+                        continue;
+                    }
+
+                    std::cout << "|";
+                    continue;
+
+                }
+
+                if ((j == column + 1 || j == column) && i == row * 2 + 1)
+                {
+                    if (j == column + 1 && (i == row * 2 + 1 || i == row * 2 - 1))
+                    {
+                        setcolor(5);
+                        std::cout << "___";
+                        setcolor(15);
+                    }
+                    else
+                    {
+                        std::cout << "___";
+                    }
+
+                    setcolor(5);
+                    std::cout << "|";
+                    setcolor(15);
+                    continue;
+
+                }
+
                 std::cout << "___" << "|";
+                continue;
             }
 
             else
@@ -750,24 +816,55 @@ int draw(int height, int width, int game_mode, int hiscore)
                         setcolor(8);
                         std::cout << "#";
                         setcolor(15);
-                        std::cout << " " << "|";                       
+                        std::cout << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
+                                       
                         continue;
                     }
                     
                     if (boxes[j - 1][i / 2].surrounded == 0)
                     {
-                        std::cout << " " << " " << " " << "|";
+                        std::cout << " " << " " << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
+                        
                         continue;
                     }
 
                     if (boxes[j - 1][i / 2].surrounded == 1)
                     {
-                        
                         std::cout << " ";
                         setcolor(9);
                         std::cout << boxes[j - 1][i / 2].surrounded;
                         setcolor(15);
-                        std::cout << " " << "|";
+                        std::cout << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
                         
                         continue;
                     }
@@ -779,7 +876,17 @@ int draw(int height, int width, int game_mode, int hiscore)
                         setcolor(2);
                         std::cout << boxes[j - 1][i / 2].surrounded;
                         setcolor(15);
-                        std::cout << " " << "|";
+                        std::cout << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
                         
                         continue;
                     }
@@ -791,8 +898,18 @@ int draw(int height, int width, int game_mode, int hiscore)
                         setcolor(12);
                         std::cout << boxes[j - 1][i / 2].surrounded;
                         setcolor(15);
-                        std::cout << " " << "|";
-                        
+                        std::cout << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
+            
                         continue;
                     }
 
@@ -803,7 +920,17 @@ int draw(int height, int width, int game_mode, int hiscore)
                         setcolor(1);
                         std::cout << boxes[j - 1][i / 2].surrounded;
                         setcolor(15);
-                        std::cout << " " << "|";
+                        std::cout << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
                         
                         continue;
                     }
@@ -815,12 +942,33 @@ int draw(int height, int width, int game_mode, int hiscore)
                         setcolor(13);
                         std::cout << boxes[j - 1][i / 2].surrounded;
                         setcolor(15);
-                        std::cout << " " << "|";
-                       
+                        std::cout << " ";
+
+                        if (i == row * 2 && (j == column + 1 || j == column))
+                        {
+                            setcolor(5);
+                            std::cout << "|";
+                            setcolor(15);
+                            continue;
+                        }
+
+                        std::cout << "|";
+                            
                         continue;
                     }
 
-                    std::cout << " " << boxes[j - 1][i / 2].surrounded << " " << "|";
+
+                    std::cout << " " << boxes[j - 1][i / 2].surrounded << " ";
+
+                    if (i == row * 2 && (j == column + 1 || j == column))
+                    {
+                        setcolor(5);
+                        std::cout << "|";
+                        setcolor(15);
+                        continue;
+                    }
+
+                    std::cout << "|";
                     continue;
                 }
 
@@ -831,7 +979,17 @@ int draw(int height, int width, int game_mode, int hiscore)
                     setcolor(4);
                     std::cout << "*";
                     setcolor(15);
-                    std::cout << " " << "|";
+                    std::cout << " ";
+
+                    if (i == row * 2 && (j == column + 1 || j == column))
+                    {
+                        setcolor(5);
+                        std::cout << "|";
+                        setcolor(15);
+                        continue;
+                    }
+
+                    std::cout << "|";
                     
                     continue;
                 }
@@ -840,7 +998,17 @@ int draw(int height, int width, int game_mode, int hiscore)
                 setcolor(6);
                 std::cout << "?";
                 setcolor(15);
-                std::cout << " " << "|";
+                std::cout << " ";
+
+                if (i == row * 2 && (j == column + 1 || j == column))
+                {
+                    setcolor(5);
+                    std::cout << "|";
+                    setcolor(15);
+                    continue;
+                }
+
+                std::cout << "|";
                 
             }
         }
@@ -854,16 +1022,21 @@ int draw(int height, int width, int game_mode, int hiscore)
 
 //TAKE COMMANDS, EXECUTE COMMANDS
 
-string take_command(int height, int width, int thbd, int game_mode)
+string take_command(int height, int width, int thbd, int game_mode, int hiscore, string cell)
 {
 
-    string cmd;
+    string cmd, temp;
 
     do
     {
-        std::cout << "Enter command (q to quit, n to remake): ";
-    
-        getline(std::cin, cmd);
+        cmd = handleInput(cell, height, width, game_mode, hiscore);
+        temp = cmd;
+        temp.resize(3);
+
+        if (check_cell(temp, height, width) && temp.length() == 3)
+        {
+            cell = temp;
+        }
 
         if (cmd == "q")
         {
@@ -881,7 +1054,7 @@ string take_command(int height, int width, int thbd, int game_mode)
             
         }
         
-    } while (cmd.size() != 4 || (cmd[0] != 'o' && cmd[0] != 'f' && cmd[0] != 'u'));
+    } while (cmd.size() != 4 || (cmd[3] != 'o' && cmd[3] != 'f' && cmd[3] != 'u') || !check_cell(cmd, height, width));
 
     
     if (cmd == "q")
@@ -905,32 +1078,182 @@ string take_command(int height, int width, int thbd, int game_mode)
     }
 
    
-    while ((cmd[1] > (char) (width + 64) || cmd[1] < 'A') && (((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48 > height || ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48 < 1))
-    {
-        std::cout << "Enter command (o or f or u): ";
-        getline(std::cin, cmd);
-    }
-
-    
-    int pos_x = ((int) cmd[1]) - 64;
-    int pos_y = ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48;
+    int pos_x = ((int) cmd[0]) - 64;
+    int pos_y = stoi(cmd.substr(1));
 
 
-    if (cmd[0] == 'f')
+    if (cmd[3] == 'f')
     {
         boxes[pos_x][pos_y].flagged = true;
     }
-    if (cmd[0] == 'u')
+    if (cmd[3] == 'u')
     {
         boxes[pos_x][pos_y].flagged = false;
     }
-    if (cmd[0] == 'o')
+    if (cmd[3] == 'o')
     {
         open(pos_x, pos_y, height, width);
     }
     
     return cmd;
 }
+
+
+//CHECK VALID CELL
+
+bool check_cell(string cmd, int height, int width)
+{
+    
+    if ((cmd[0] > (char) (width + 64) || cmd[0] < 'A') && (((int) cmd[1] - 48) * 10 + (int) cmd[2] - 48 > height || ((int) cmd[1] - 48) * 10 + (int) cmd[2] - 48 < 1))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+
+
+//HANDLE INPUT
+
+string handleInput(string cell, int height, int width, int game_mode, int hiscore)
+{
+    string cmd, remained_cmd;
+
+   
+    std::cout << "Enter command (q to quit, n to remake): ";
+
+    int ch;
+    ch = _getch();
+
+    if (ch != 224)
+    {
+        string s1 = string(1, ch);
+        std::cout << s1;
+        getline(std::cin, remained_cmd);
+        cmd = s1 + remained_cmd;
+        return cmd;
+    }
+
+    else
+    {
+        string new_cell, action;
+        char c = cell[0];
+        int row = stoi(cell.substr(1));
+        ch = _getch();
+
+        if (ch == 72)
+        {
+            string column = string(1, c);
+            --row;
+            if (row < 1)
+            {
+                row = height;
+            }
+
+            string str_row = to_string(row);
+            string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+            new_cell = column + formatted_row;
+
+            std::cout << endl;
+            draw(height, width, game_mode, hiscore, new_cell);
+            cout << "Move with keyboard ( add o or f or u to finish command): " << new_cell;
+            getline(cin, action);
+
+            cmd = new_cell + action;
+
+            return cmd;
+
+        }
+
+
+        if (ch == 80)
+        {
+            string column = string(1, c);
+            ++row;
+            if (row > height)
+            {
+                row = 1;
+            }
+
+            string str_row = to_string(row);
+            string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+            new_cell = column + formatted_row;
+
+            std::cout << endl;
+            draw(height, width, game_mode, hiscore, new_cell);
+            cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
+            getline(cin, action);
+
+            cmd = new_cell + action;
+            
+            return cmd;
+        }
+
+
+        if (ch == 77)
+        {
+            
+            ++c;
+
+            if (c > (char) (width + 64))
+            {
+                c = 'A';
+            }
+
+            string column = string(1, c);
+
+            string str_row = to_string(row);
+            string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+            new_cell = column + formatted_row;
+
+            std::cout << endl;
+            draw(height, width, game_mode, hiscore, new_cell);
+            cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
+            getline(cin, action);
+
+            cmd = new_cell + action;
+            
+            return cmd;
+
+        }
+
+
+        if (ch == 75)
+        {
+            --c;
+
+            if (c < 'A')
+            {
+                c = (char) (width + 64);
+            }
+
+            string column = string(1, c);
+
+            string str_row = to_string(row);
+            string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+            new_cell = column + formatted_row;
+
+            std::cout << endl;
+            draw(height, width, game_mode, hiscore, new_cell);
+            cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
+            getline(cin, action);
+
+            cmd = new_cell + action;
+            return cmd;
+        }
+    
+    }
+
+    
+
+    return cmd;
+}
+
 
 
 //OPEN NEIGHBOUR-CELLS IF CURRENT CELL SURROUNDED IS SET TO 0
@@ -1026,10 +1349,10 @@ void reverse_open(int pos_x, int pos_y, int height, int width)
 
 bool game_over(string cmd)
 {
-    if (cmd[0] == 'o')
+    if (cmd[3] == 'o')
     {
-        int pos_x = ((int) cmd[1]) - 64;
-        int pos_y = ((int) cmd[2] - 48) * 10 + (int) cmd[3] - 48;
+        int pos_x = ((int) cmd[0]) - 64;
+        int pos_y = stoi(cmd.substr(1));
         if (boxes[pos_x][pos_y].attribute == 1)
         {
             return true;
