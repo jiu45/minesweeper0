@@ -5,7 +5,7 @@
 #include <chrono> 
 #include <windows.h>     //Insert color
 #include <sqlite3.h>     //Save data
-#include <conio.h>
+#include <conio.h>       //_getch()
 #include <iomanip>
 
 
@@ -14,6 +14,8 @@ using namespace std;
 // Define maximum boxes
 
 const int N = 32;
+
+//Declare 1 box structure
 
 struct box
 {
@@ -38,6 +40,7 @@ int draw(int height, int width, int game_mode, int hiscore, string cell);
 string take_command(int height, int width, int thbd, int game_mode, int hiscore, string cell);
 bool check_cell(string cmd, int height, int width);
 string handleInput(string cell, int height, int width, int game_mode, int hiscore);
+string move_with_arrow(string cell, int height, int width, int game_mode, int hiscore);
 void open(int pos_x, int pos_y, int height, int width);
 void reverse_open(int pos_x, int pos_y, int height, int width);
 bool game_over(string cmd);
@@ -64,16 +67,15 @@ string setcolor(unsigned short color)
 
 int main()
 {
-    // Welcome user
+
+// Welcome user
+
     std::cout << endl;
     std::cout << "Welcome to Minsweeper on terminal :)" << endl;
     std::cout << "Press enter to continue";
     std::cin.get();
-    
-
-
-    
-    //Rules
+  
+//Rules
 
     std::cout << std::endl;
 
@@ -87,7 +89,7 @@ int main()
     std::cin.clear();    
     
 
-    //Execute at every time the program run and loop when is_new_game is true
+//EXECUTES WHENEVER THE PROGRAM RUNS AND LOOPS IF is_new_game IS TRUE
     
 
     bool is_new_game = false;
@@ -104,7 +106,7 @@ int main()
 
         setdefault();
 
-        //Open data from last game if saved
+//Open data from last game if saved
 
         if (is_new_game == false)
         {
@@ -198,8 +200,8 @@ int main()
         }
 
         
-        //Execute when new game is selected or the data of last game is not saved
-        //If the last game is saved, skip this part
+//Execute when new game is selected or the data of last game is not saved
+//If the last game is saved, skip this part
 
         if (is_new_game)
         {
@@ -228,9 +230,9 @@ int main()
 
             std::cin.get();
 
-            //Set up for level
 
-            
+            //SET UP FOR LEVEL
+        
 
             switch (str1[0])
             {
@@ -266,7 +268,11 @@ int main()
 
             }
 
+            //Set bombs
+
             set_bombs(bombs, board_height, board_width);   //mines are at location, be carefull !
+
+            //Update number of bombs surrounding each box
 
             for (int i = 1; i <= board_height; i++)
             {
@@ -287,7 +293,7 @@ int main()
         }
 
 
-        //PLAY-TIME
+//PLAY-TIME
 
         int max = board_height * board_width - bombs;
         string cmd;
@@ -297,7 +303,7 @@ int main()
         std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
         std::chrono::duration<long long, std::ratio<1, 1>> duration;
         int hi_score = receive_highscore(game_mode);
-        string cell = "A01";
+        string cell = "A01";      //Mark the first box of the game
 
         //Loop through the entire game
 
@@ -309,7 +315,7 @@ int main()
 
             if (draw(board_height, board_width, game_mode, hi_score, cell) >= max)
             {
-                end = std::chrono::high_resolution_clock::now();
+                end = std::chrono::high_resolution_clock::now();        //if win -> timer stops
                 win = true;
                 std::cout << endl;
                 std::cout << "You win !" << endl;
@@ -325,10 +331,15 @@ int main()
         
             std::cout << endl;
 
+            //Take command from user, return to check
+
             cmd = take_command(board_height, board_width, thbd, game_mode, hi_score, cell);
+
+            //Update correct cell to mark
             cell = cmd;
             cell.resize(3);
 
+            //Timer starts
             if (start_timer)
             {
                 start = std::chrono::high_resolution_clock::now();
@@ -338,7 +349,7 @@ int main()
             //If new game is selected
             if (cmd == "new")
             {   
-                end = std::chrono::high_resolution_clock::now();
+                end = std::chrono::high_resolution_clock::now();        //Timer stops
                 is_new_game = true;
                 break;
             }
@@ -346,7 +357,7 @@ int main()
             //If not save is selected
             if (cmd == "n")
             {
-                end = std::chrono::high_resolution_clock::now();
+                end = std::chrono::high_resolution_clock::now();      //Timer stops
                 is_new_game = false;
                 break;
             }
@@ -354,7 +365,7 @@ int main()
             //If save is chosen
             if (cmd == "y")
             {
-                end = std::chrono::high_resolution_clock::now();
+                end = std::chrono::high_resolution_clock::now();      //Timer stops
                 is_new_game = false;
                 show_board = false;        //Change the value to avoid show_board
                 break;
@@ -363,7 +374,7 @@ int main()
             //If clicked onto bomb
             if (game_over(cmd))
             {
-                end = std::chrono::high_resolution_clock::now();
+                end = std::chrono::high_resolution_clock::now();        //Gsme-over -> timer stops
                 std::cout << "Clicked onto bomb. Exploded." << endl;
                 std::cout << endl;
                 std::cout << "Game over" << endl;
@@ -387,10 +398,14 @@ int main()
     
         }
 
-        //End game, show board
+//END GAME, SHOW BOARD
 
-        duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+        //Calculate the time span of this session
+
+        duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);      
         int seconds = duration.count() + saved_game_time;
+
+        //If the game is not saved
 
         if (show_board)
         {
@@ -401,11 +416,14 @@ int main()
         
         }
 
+        //If the game is saved
+
         if (!show_board)
         {
             save(board_height, board_width, thbd, seconds, -1, game_mode, 2);
         }
 
+        //if win -> calculate points and save if points > highscore
 
         if (win)
         {
@@ -428,7 +446,7 @@ int main()
     } while(is_new_game);
 
 
-    //Goodbye
+//Goodbye
 
     std::cout << "Press enter to log out";
     std::cin.get();
@@ -1120,7 +1138,6 @@ string handleInput(string cell, int height, int width, int game_mode, int hiscor
 {
     string cmd, remained_cmd;
 
-   
     std::cout << "Enter command (q to quit, n to remake): ";
 
     int ch;
@@ -1137,121 +1154,164 @@ string handleInput(string cell, int height, int width, int game_mode, int hiscor
 
     else
     {
-        string new_cell, action;
-        char c = cell[0];
-        int row = stoi(cell.substr(1));
-        ch = _getch();
-
-        if (ch == 72)
-        {
-            string column = string(1, c);
-            --row;
-            if (row < 1)
-            {
-                row = height;
-            }
-
-            string str_row = to_string(row);
-            string formatted_row = string(2 - str_row.length(), '0') + str_row;
-
-            new_cell = column + formatted_row;
-
-            std::cout << endl;
-            draw(height, width, game_mode, hiscore, new_cell);
-            cout << "Move with keyboard ( add o or f or u to finish command): " << new_cell;
-            getline(cin, action);
-
-            cmd = new_cell + action;
-
-            return cmd;
-
-        }
-
-
-        if (ch == 80)
-        {
-            string column = string(1, c);
-            ++row;
-            if (row > height)
-            {
-                row = 1;
-            }
-
-            string str_row = to_string(row);
-            string formatted_row = string(2 - str_row.length(), '0') + str_row;
-
-            new_cell = column + formatted_row;
-
-            std::cout << endl;
-            draw(height, width, game_mode, hiscore, new_cell);
-            cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
-            getline(cin, action);
-
-            cmd = new_cell + action;
-            
-            return cmd;
-        }
-
-
-        if (ch == 77)
-        {
-            
-            ++c;
-
-            if (c > (char) (width + 64))
-            {
-                c = 'A';
-            }
-
-            string column = string(1, c);
-
-            string str_row = to_string(row);
-            string formatted_row = string(2 - str_row.length(), '0') + str_row;
-
-            new_cell = column + formatted_row;
-
-            std::cout << endl;
-            draw(height, width, game_mode, hiscore, new_cell);
-            cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
-            getline(cin, action);
-
-            cmd = new_cell + action;
-            
-            return cmd;
-
-        }
-
-
-        if (ch == 75)
-        {
-            --c;
-
-            if (c < 'A')
-            {
-                c = (char) (width + 64);
-            }
-
-            string column = string(1, c);
-
-            string str_row = to_string(row);
-            string formatted_row = string(2 - str_row.length(), '0') + str_row;
-
-            new_cell = column + formatted_row;
-
-            std::cout << endl;
-            draw(height, width, game_mode, hiscore, new_cell);
-            cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
-            getline(cin, action);
-
-            cmd = new_cell + action;
-            return cmd;
-        }
-    
+        cmd = move_with_arrow(cell, height, width, game_mode, hiscore);
     }
 
-    
+    return cmd;
+}
+
+
+//MOVE WITH ARROW
+
+string move_with_arrow(string cell, int height, int width, int game_mode, int hiscore)
+{
+    string new_cell, cmd, action;
+    int ch;
+    char c = cell[0];
+    int row = stoi(cell.substr(1));
+    ch = _getch();
+
+    if (ch == 72)
+    {
+        string column = string(1, c);
+        --row;
+        if (row < 1)
+        {
+            row = height;
+        }
+
+        string str_row = to_string(row);
+        string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+        new_cell = column + formatted_row;
+
+        std::cout << endl;
+        system("cls");
+        draw(height, width, game_mode, hiscore, new_cell);
+        cout << "Move with arrow ( add o or f or u to finish command): " << new_cell;
+        ch = _getch();
+        cout << endl;
+        action = string(1, ch);
+
+        if (ch != 224)
+        {
+            cmd = new_cell + action;
+            return cmd;
+        }
+        
+        cmd = move_with_arrow(new_cell, height, width, game_mode, hiscore);
+
+    }
+
+
+    else if (ch == 80)
+    {
+        string column = string(1, c);
+        ++row;
+        if (row > height)
+        {
+            row = 1;
+        }
+
+        string str_row = to_string(row);
+        string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+        new_cell = column + formatted_row;
+
+        std::cout << endl;
+        system("cls");
+        draw(height, width, game_mode, hiscore, new_cell);
+        cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
+        ch = _getch();
+        cout << endl;
+        action = string(1, ch);
+
+        if (ch != 224)
+        {
+            cmd = new_cell + action;
+            return cmd;
+        }
+        
+        cmd = move_with_arrow(new_cell, height, width, game_mode, hiscore);
+    }
+
+
+    else if (ch == 77)
+    {
+        
+        ++c;
+
+        if (c > (char) (width + 64))
+        {
+            c = 'A';
+        }
+
+        string column = string(1, c);
+
+        string str_row = to_string(row);
+        string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+        new_cell = column + formatted_row;
+
+        std::cout << endl;
+        system("cls");
+        draw(height, width, game_mode, hiscore, new_cell);
+        cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
+        ch = _getch();
+        cout << endl;
+        action = string(1, ch);
+
+        if (ch != 224)
+        {
+            cmd = new_cell + action;
+            return cmd;
+        }
+        
+        cmd = move_with_arrow(new_cell, height, width, game_mode, hiscore);
+
+    }
+
+
+    else if (ch == 75)
+    {
+        --c;
+
+        if (c < 'A')
+        {
+            c = (char) (width + 64);
+        }
+
+        string column = string(1, c);
+
+        string str_row = to_string(row);
+        string formatted_row = string(2 - str_row.length(), '0') + str_row;
+
+        new_cell = column + formatted_row;
+
+        std::cout << endl;
+        system("cls");
+        draw(height, width, game_mode, hiscore, new_cell);
+        cout << "Move with arrow (add o or f or u to finish command): " << new_cell;
+        ch = _getch();
+        cout << endl;
+        action = string(1, ch);
+
+        if (ch != 224)
+        {
+            cmd = new_cell + action;
+            return cmd;
+        }
+        
+        cmd = move_with_arrow(new_cell, height, width, game_mode, hiscore);
+    }
+
+    else
+    {
+        cmd = cell;
+    }
 
     return cmd;
+
 }
 
 
@@ -1303,7 +1363,7 @@ void open(int pos_x, int pos_y, int height, int width)
 }
 
 
-// For calculate 3bd
+// FOR CALCULATE 3BD'S
 
 void reverse_open(int pos_x, int pos_y, int height, int width)
 {
@@ -1506,7 +1566,7 @@ bool save(int height, int width, int thbd, int time, int hiscore, int game_mode,
 
 
 
-//Take high_score in the database
+//TAKE HIGHSCORE IN THE DATABASE
 
 int receive_highscore(int game_mode)
 {
@@ -1537,7 +1597,7 @@ int receive_highscore(int game_mode)
 
 
 
-//Manage high score
+//MANAGE HIGHSCORE
 
 bool manage_high_score(int score, int high_score, int game_mode)
 {
