@@ -81,9 +81,10 @@ int main()
 
     std::cout << "Rules:\n";
 
-    std::cout << "To open: type in o and location with no spaces, row first(capital) and column after (eg. oA05)" << endl;
-    std::cout << "To flag: type in f and location with no spaces, row first(capital) and column after (eg. fC16)" << endl;
-    std::cout << "To unflag: type in u and location with no spaces, row first(capital) and column after (eg. uC06)" << endl;
+    std::cout << "To open: type in location with no spaces, row first(capital), column after and o  (eg. A05o)" << endl;
+    std::cout << "To open: type in location with no spaces, row first(capital), column after and f  (eg. C16f)" << endl;
+    std::cout << "To open: type in location with no spaces, row first(capital), column after and u  (eg. C06u)" << endl;
+    std::cout << endl;
     std::cout << "When you're ready, press enter to continue" << endl;
     std::cin.get();
     std::cin.clear();    
