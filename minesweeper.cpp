@@ -461,8 +461,6 @@ int main()
     std::cout << "Come back anytime. I will always be here, in the land of dawn ! \n";
     std::cout << endl;
 
-//Return
-
     return 0;
 
 }
