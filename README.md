@@ -1,6 +1,7 @@
 #APCS - CS161 
 
-Just a simple clone of minesweeper :)
+Compile the game: g++ -o "minesweeper" minesweeper.cpp -lsqlite3
 
-Enjoy.
+Run the game: ./minesweeper
 
+Please ignore the warnings :)
